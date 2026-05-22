@@ -1,6 +1,5 @@
 <!doctype html>
 <html lang="en">
-<html lang="en">
 <head>
 <meta charset="utf-8"/>
 <title>Maze Bomber — Multiplayer Leaderboard</title>
@@ -19,7 +18,7 @@
   --panel-bg:rgba(4,10,20,0.96);--border:rgba(0,229,255,0.18);
 }
 html,body{height:100%;margin:0;padding:0;background:var(--bg);color:#c8dff0;
-  font-family:var(--fmono);overflow:hidden;touch-action:none;
+  font-family:var(--fmono);overflow:hidden;touch-action:manipulation;
   overscroll-behavior:none;-webkit-user-select:none;user-select:none;
   -webkit-tap-highlight-color:transparent;}
 body::before{content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
@@ -209,8 +208,8 @@ canvas{display:block;image-rendering:pixelated;border-radius:8px;touch-action:no
     <div class="auth-logo">MAZE//BOMBER</div>
     <div class="auth-sub">MULTIPLAYER LEADERBOARD</div>
     <div class="auth-tabs">
-      <div class="auth-tab active" id="tab-login" onclick="switchTab('login')">LOGIN</div>
-      <div class="auth-tab" id="tab-register" onclick="switchTab('register')">REGISTER</div>
+      <button type="button" class="auth-tab active" id="tab-login">LOGIN</button>
+      <button type="button" class="auth-tab" id="tab-register">REGISTER</button>
     </div>
 
     <!-- LOGIN FORM -->
@@ -224,7 +223,7 @@ canvas{display:block;image-rendering:pixelated;border-radius:8px;touch-action:no
         <input type="password" id="l-pass" placeholder="Enter password" autocomplete="current-password"/>
       </div>
       <div class="auth-err" id="l-err"></div>
-      <button class="auth-btn" id="l-btn" onclick="doLogin()">LAUNCH MISSION</button>
+      <button type="button" class="auth-btn" id="l-btn">LAUNCH MISSION</button>
     </div>
 
     <!-- REGISTER FORM -->
@@ -249,7 +248,7 @@ canvas{display:block;image-rendering:pixelated;border-radius:8px;touch-action:no
       </div>
       <div class="auth-err" id="r-err"></div>
       <div class="auth-ok" id="r-ok"></div>
-      <button class="auth-btn" id="r-btn" onclick="doRegister()" disabled>CREATE ACCOUNT</button>
+      <button type="button" class="auth-btn" id="r-btn" disabled>CREATE ACCOUNT</button>
     </div>
   </div>
 </div>
@@ -258,13 +257,13 @@ canvas{display:block;image-rendering:pixelated;border-radius:8px;touch-action:no
 <div id="lb-screen">
   <div class="lb-header">
     <div class="lb-title">🏆 LEADERBOARD</div>
-    <button class="lb-close" onclick="closeLeaderboard()">✕ CLOSE</button>
+    <button type="button" class="lb-close" id="lb-close">✕ CLOSE</button>
   </div>
   <div class="lb-tabs">
-    <div class="lb-tab active" onclick="setLbTab('daily')">DAILY</div>
-    <div class="lb-tab" onclick="setLbTab('weekly')">WEEKLY</div>
-    <div class="lb-tab" onclick="setLbTab('monthly')">MONTHLY</div>
-    <div class="lb-tab" onclick="setLbTab('alltime')">ALL TIME</div>
+    <button type="button" class="lb-tab active" data-period="daily">DAILY</button>
+    <button type="button" class="lb-tab" data-period="weekly">WEEKLY</button>
+    <button type="button" class="lb-tab" data-period="monthly">MONTHLY</button>
+    <button type="button" class="lb-tab" data-period="alltime">ALL TIME</button>
   </div>
   <div class="lb-list" id="lb-list"></div>
   <div class="lb-my-rank" id="lb-my-rank"></div>
@@ -282,11 +281,11 @@ canvas{display:block;image-rendering:pixelated;border-radius:8px;touch-action:no
     <span class="hud-stat bombs"  id="bombInfo">💣 2</span>
     <span class="hud-stat timer"  id="timeInfo">0s</span>
     <span class="hud-stat powerup" id="pwInfo" style="display:none"></span>
-    <button class="hud-btn" id="lbBtn" onclick="openLeaderboard()">🏆</button>
+    <button type="button" class="hud-btn" id="lbBtn">🏆</button>
     <button class="hud-btn" id="muteBtn">🔊</button>
     <button class="hud-btn" id="pauseBtn">⏸</button>
     <button class="hud-btn" id="restartBtn">↺</button>
-    <button class="hud-btn" onclick="doLogout()" title="Logout">⏏</button>
+    <button type="button" class="hud-btn" id="logoutBtn" title="Logout">⏏</button>
   </div>
   <div id="canvas-wrap">
     <canvas id="game"></canvas>
@@ -298,7 +297,7 @@ canvas{display:block;image-rendering:pixelated;border-radius:8px;touch-action:no
       <div class="ol-rank" id="ol-rank"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
         <button class="big-btn" id="overlayBtn">PLAY AGAIN</button>
-        <button class="big-btn secondary" onclick="openLeaderboard()">🏆 BOARD</button>
+        <button type="button" class="big-btn secondary" id="overlayBoardBtn">🏆 BOARD</button>
       </div>
       <div id="hs-badge"></div>
     </div>
@@ -555,6 +554,29 @@ function escHtml(s) {
 document.getElementById('l-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 document.getElementById('l-user').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('l-pass').focus(); });
 document.getElementById('r-pass2').addEventListener('keydown', e => { if(e.key==='Enter' && !document.getElementById('r-btn').disabled) doRegister(); });
+// Use buttons for auth tabs to avoid invisible overlays intercepting clicks
+const tabLoginEl = document.getElementById('tab-login');
+const tabRegisterEl = document.getElementById('tab-register');
+if (tabLoginEl) {
+  tabLoginEl.addEventListener('click', () => switchTab('login'));
+  tabLoginEl.addEventListener('pointerdown', (e) => { e.preventDefault(); switchTab('login'); });
+}
+if (tabRegisterEl) {
+  tabRegisterEl.addEventListener('click', () => switchTab('register'));
+  tabRegisterEl.addEventListener('pointerdown', (e) => { e.preventDefault(); switchTab('register'); });
+}
+// Auth action buttons
+const lBtn = document.getElementById('l-btn'); if (lBtn) lBtn.addEventListener('click', () => doLogin());
+const rBtn = document.getElementById('r-btn'); if (rBtn) rBtn.addEventListener('click', () => doRegister());
+// Leaderboard and HUD buttons
+const lbCloseBtn = document.getElementById('lb-close'); if (lbCloseBtn) lbCloseBtn.addEventListener('click', () => closeLeaderboard());
+const lbBtnEl = document.getElementById('lbBtn'); if (lbBtnEl) lbBtnEl.addEventListener('click', () => openLeaderboard());
+const logoutBtn = document.getElementById('logoutBtn'); if (logoutBtn) logoutBtn.addEventListener('click', () => doLogout());
+const overlayBoardBtn = document.getElementById('overlayBoardBtn'); if (overlayBoardBtn) overlayBoardBtn.addEventListener('click', () => openLeaderboard());
+document.querySelectorAll('.lb-tab').forEach(el => {
+  el.addEventListener('click', () => setLbTab(el.dataset.period));
+  el.addEventListener('pointerdown', (e) => { e.preventDefault(); setLbTab(el.dataset.period); });
+});
 
 // ══════════════════════════════════════════════════════════
 (() => {

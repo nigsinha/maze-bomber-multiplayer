@@ -147,9 +147,12 @@ app.post('/api/score', requireAuth, scoreLimiter, (req, res) => {
   const secs = Math.max(1, durationMs / 1000);
   if (score / secs > 400) return res.status(400).json({ error: 'Score rejected: rate too high' });
 
+  // Use canonical username from users table rather than trusting token payload
+  const userRec = db.prepare('SELECT username FROM users WHERE id = ?').get(req.user.sub);
+  const username = userRec ? userRec.username : req.user.username;
   db.prepare(
     'INSERT INTO scores (user_id, username, score, level, duration_ms, ts) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(req.user.sub, req.user.username, score, level, durationMs, Date.now());
+  ).run(req.user.sub, username, score, level, durationMs, Date.now());
 
   // Return fresh personal best
   const best = db.prepare(
@@ -170,19 +173,32 @@ app.get('/api/leaderboard', requireAuth, (req, res) => {
 
   // Best score per user in the period.
   // ── FIX #1: CAST level AS INTEGER so response is always a safe integer ────
+  // Determine best score per user in the period, then join back to get
+  // canonical username from the users table and deterministic ts/level values.
   const rows = db.prepare(`
-    SELECT username, MAX(score) AS score, CAST(level AS INTEGER) AS level, ts
-    FROM scores
-    WHERE ts >= ?
-    GROUP BY user_id
-    ORDER BY score DESC
+    WITH best AS (
+      SELECT user_id, MAX(score) AS score
+      FROM scores
+      WHERE ts >= ?
+      GROUP BY user_id
+    )
+    SELECT u.username AS username,
+           b.score AS score,
+           CAST(MAX(s.level) AS INTEGER) AS level,
+           MAX(s.ts) AS ts
+    FROM best b
+    JOIN scores s ON s.user_id = b.user_id AND s.score = b.score
+    JOIN users u ON u.id = b.user_id
+    WHERE s.ts >= ?
+    GROUP BY b.user_id
+    ORDER BY b.score DESC
     LIMIT ?
-  `).all(cutoff, limit);
+  `).all(cutoff, cutoff, limit);
 
   // Personal rank
-  const myBest = db.prepare(`
-    SELECT MAX(score) as score FROM scores WHERE user_id = ? AND ts >= ?
-  `).get(req.user.sub, cutoff);
+  const myBest = db.prepare(
+    'SELECT MAX(score) as score FROM scores WHERE user_id = ? AND ts >= ?'
+  ).get(req.user.sub, cutoff);
 
   const myScore = myBest?.score ?? 0;
   let myRank = null;
