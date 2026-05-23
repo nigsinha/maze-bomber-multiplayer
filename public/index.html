@@ -737,6 +737,7 @@ let killStreak = 0; // tracking consecutive kills
 let totalKills = 0;
 let authToken = '';
 let gameStartedAt = null;
+let levelStartTime = 0;
 let authMode = 'login';
 
 const usernameRegex = /^[A-Za-z0-9]{3,16}$/;
@@ -785,9 +786,6 @@ function setAuthMode(mode){
 }
 
 function submitAuth(){
-
-  console.log("AUTH MODE =", authMode);
-
   if(authMode === 'register'){
       registerUser();
   }else{
@@ -867,6 +865,7 @@ function setLeaderboardPeriod(p){
     btn.classList.toggle('active',active);
     btn.setAttribute('aria-selected',active?'true':'false');
   });
+  loadProfilePanel();
 }
 
 async function loadProfilePanel(){
@@ -1113,10 +1112,15 @@ function explodeBomb(b){
   const cx=b.cellX, cy=b.cellY;
   const rad=explosionRad();
   const affected=[[cx,cy]];
-  for(let r=1;r<=rad;r++){
-    for(const[dx,dy] of[[r,0],[-r,0],[0,r],[0,-r]]){
-      const nx=cx+dx,ny=cy+dy;
-      if(inBounds(nx,ny)) affected.push([nx,ny]);
+  for(const[dx,dy] of[[1,0],[-1,0],[0,1],[0,-1]]){
+    for(let r=1;r<=rad;r++){
+      const nx=cx+dx*r, ny=cy+dy*r;
+      if(!inBounds(nx,ny)) break;
+      // solid wall (not open floor, not a crate) stops the blast
+      if(!maze[idx(nx,ny)]&&!crates[idx(nx,ny)]) break;
+      affected.push([nx,ny]);
+      // crate absorbs the blast — don't penetrate further
+      if(crates[idx(nx,ny)]) break;
     }
   }
   // Destroy crates, open paths
@@ -1235,6 +1239,13 @@ function updateEnemy(e, dt, now){
       if(!found) e.path=[];
       e.wanderCooldown=750+Math.random()*550;
     }
+  } else if(e.type==='speeder'){
+    // Fast chaser: replans very frequently, always targets player directly
+    if(now-e.lastPlan>Math.max(100,d.enemyReplan*0.4)||!e.path||e.path.length===0){
+      const path=bfsPath(Math.round(e.x),Math.round(e.y),player.x,player.y);
+      e.path=(path&&path.length>1)?path.slice(1):[];
+      e.lastPlan=now;
+    }
   } else if(e.type==='hunter'){
     if(now-e.lastPlan>d.enemyReplan||!e.path||e.path.length===0){
       let tx=player.x, ty=player.y;
@@ -1272,7 +1283,7 @@ function updateEnemy(e, dt, now){
 function update(dt){
   if(!running||paused||gameOver) return;
   const now=performance.now();
-  elapsed=Math.floor((Date.now()-gameStartedAt)/1000);
+  elapsed=Math.floor((Date.now()-levelStartTime)/1000);
   document.getElementById('timeInfo').textContent=`${elapsed}s`;
 
   // Update powerups expiry timers
@@ -1301,7 +1312,6 @@ function update(dt){
       player.px=tc.cx; player.py=tc.cy;
       player.x=moveTarget.x; player.y=moveTarget.y;
       moveTarget=null;
-      killStreak=0; // clear hitstreak on completion of safe steps
     } else {
       player.px+=(dx/dist)*step;
       player.py+=(dy/dist)*step;
@@ -1415,8 +1425,9 @@ function fullReset(){
   spawnEnemies();
   resetPlayerToEntrance();
   bombs=[]; powerups=[]; particles=[];
-  activePowerups={};
+  activePowerups={}; killStreak=0;
   running=true; gameOver=false; paused=false;
+  levelStartTime=Date.now();
   document.getElementById('pauseBtn').textContent='⏸';
   startBGM();
   updateHUD();
@@ -1634,10 +1645,13 @@ function draw(){
       ctx.fillStyle='rgba(255,87,34,0.42)';
       const rad=explosionRad();
       const affected=[[b.cellX,b.cellY]];
-      for(let r=1;r<=rad;r++){
-        for(const[dx,dy] of[[r,0],[-r,0],[0,r],[0,-r]]){
-          const nx=b.cellX+dx,ny=b.cellY+dy;
-          if(inBounds(nx,ny)) affected.push([nx,ny]);
+      for(const[dx,dy] of[[1,0],[-1,0],[0,1],[0,-1]]){
+        for(let r=1;r<=rad;r++){
+          const nx=b.cellX+dx*r, ny=b.cellY+dy*r;
+          if(!inBounds(nx,ny)) break;
+          if(!maze[idx(nx,ny)]&&!crates[idx(nx,ny)]) break;
+          affected.push([nx,ny]);
+          if(crates[idx(nx,ny)]) break;
         }
       }
       affected.forEach(([cx,cy])=>{
@@ -1741,7 +1755,7 @@ function playNoise(duration, vol=0.14, highpass=300){
 const SFX = {
   move(){ playTone(200,'square',0.055,0.035); },
   bomb(){ playTone(75,'sawtooth',0.16,0.17); },
-  explode(){ playNoise(0.65,0.38,70); playTone(55,'sawtooth',0.55,0.3,0.005,0.55); },
+  explode(){ playNoise(0.65,0.38,70); playTone(55,'sawtooth',0.55,0.3,0.005); },
   enemyDie(){ playTone(290,'square',0.11,0.18); },
   hit(){ playNoise(0.28,0.26,180); playTone(75,'sawtooth',0.28,0.18,0.005,0.28); },
   levelUp(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>playTone(f,'square',0.18,0.17),i*80)); },
@@ -1852,6 +1866,9 @@ function bindControls(){
   document.getElementById('muteBtn').addEventListener('click',toggleMute);
   document.getElementById('leaderboardBtn').addEventListener('click',openProfilePanel);
   document.getElementById('closeProfileBtn').addEventListener('click',closeProfilePanel);
+  document.querySelectorAll('.leaderboard-tab').forEach(btn=>{
+    btn.addEventListener('click',()=>setLeaderboardPeriod(btn.dataset.period));
+  });
 }
 
 function openProfilePanel(){
