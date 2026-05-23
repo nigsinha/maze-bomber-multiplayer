@@ -109,7 +109,7 @@ app.post("/api/login",(req,res)=>{
 app.get("/api/check-username",(req,res)=>{
   const username = String(req.query.username||"").trim();
   if(!usernameRegex.test(username)){
-    return res.status(400).json({ available:false, error:"Username must be 3-16 letters and numbers only" });
+    return res.status(400).json({ available:false, error:"Username must be 6-14 letters and numbers only" });
   }
   db.get("SELECT id FROM users WHERE username=?", [username], (err,row)=>{
     if(err) return res.status(500).json({ available:false, error:"Unable to check username" });
