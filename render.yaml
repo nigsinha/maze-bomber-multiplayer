@@ -1,21 +1,18 @@
 services:
   - type: web
-    name: maze-bomber
+    name: maze-bomber-multiplayer
     env: node
-    # ── FREE TIER NOTE ─────────────────────────────────────────────────────────
-    # Free web services spin down after 15 min of inactivity.
-    # First request after sleep takes ~30 s (cold start).
-    # Upgrade plan to "starter" ($7/mo) for always-on + no cold starts.
     plan: free
     buildCommand: npm install
     startCommand: npm start
+    healthCheckPath: /healthz
     envVars:
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET
-        generateValue: true   # Render auto-generates a cryptographically secure value
-      - key: DATA_DIR
-        value: /var/data      # Must match the disk mountPath below
+        generateValue: true
+      - key: DATABASE_PATH
+        value: /var/data/database.sqlite
     disk:
       name: maze-bomber-data
       mountPath: /var/data
