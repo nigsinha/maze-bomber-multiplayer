@@ -4,7 +4,7 @@
   "private": true,
   "main": "server/server.js",
   "engines": {
-    "node": ">=18"
+    "node": "22.x"
   },
   "scripts": {
     "start": "node server/server.js",
@@ -17,6 +17,6 @@
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.0",
     "socket.io": "^4.8.3",
-    "sqlite3": "^6.0.1"
+    "sqlite3": "^5.1.7"
   }
 }
